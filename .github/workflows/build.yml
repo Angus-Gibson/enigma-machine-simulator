@@ -99,9 +99,18 @@ jobs:
 
       # ── 4. Dependencies ───────────────────────────────────────────────────────
       - name: Install dependencies
-        run: pip install -r requirements.txt pyinstaller flake8 black
+        run: pip install -r requirements.txt pyinstaller flake8 black pytest
 
-      # ── 5. Lint ───────────────────────────────────────────────────────────────
+      # ── 5. Test ───────────────────────────────────────────────────────────────
+      # Runs before lint and build.  A test failure blocks the entire pipeline
+      # so no executable is published from a broken cipher implementation.
+      - name: Run pytest
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: pytest tests/ -v
+
+      # ── 6. Lint ───────────────────────────────────────────────────────────────
       # Runs before the PyInstaller build so style/import errors are caught early.
       # black --check:  fails if any file would be reformatted (zero changes = pass).
       # flake8:         enforces PEP 8 with project-specific overrides in .flake8.
@@ -110,7 +119,7 @@ jobs:
           black --check main.py enigma_core.py sound_manager.py
           flake8 main.py enigma_core.py sound_manager.py
 
-      # ── 7. Build ──────────────────────────────────────────────────────────────
+      # ── 7. Build ─────────────────────────────────────────────────────────────
       # SDL_VIDEODRIVER=dummy  — headless display driver; pygame never tries to
       #                          open a real window during PyInstaller analysis.
       # SDL_AUDIODRIVER=dummy  — prevents mixer-init failures on the runner.
