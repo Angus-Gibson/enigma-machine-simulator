@@ -4,9 +4,21 @@ on:
   push:
     branches: [main]
 
-# Write permission is required to create releases and tags.
+# Explicit minimum permissions — anything not listed defaults to none when a
+# permissions block is present, but spelling them out makes the security
+# posture visible to reviewers without needing to know GitHub's defaults.
 permissions:
-  contents: write
+  contents: write       # required: create release tags and upload .exe assets
+  actions: none
+  checks: none
+  deployments: none
+  id-token: none
+  issues: none
+  packages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
 
 jobs:
   build:

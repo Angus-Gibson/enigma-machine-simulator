@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Python runtime dependencies (requirements.txt) and dev tools (pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions — keeps actions/checkout, actions/setup-python,
+  # softprops/action-gh-release on current versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "github-actions"
