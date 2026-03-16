@@ -63,6 +63,12 @@ Audio is routed automatically through PulseAudio via WSLg. No extra configuratio
 
 ## Running
 
+**Windows (pre-built executable)**
+
+Download `EnigmaMachineSimulator-vX.Y.Z.exe` from the [latest release](https://github.com/Angus-Gibson/enigma-machine-simulator/releases/latest) and double-click it. No Python installation required.
+
+**From source**
+
 ```bash
 cd enigma
 .venv/bin/python main.py
