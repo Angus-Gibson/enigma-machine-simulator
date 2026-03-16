@@ -541,14 +541,10 @@ class EnigmaApp:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    if self.message_box:
-                        self.message_box = None
-                    elif self.dropdown_open:
-                        self.dropdown_open = False
-                elif not self.message_box and not self.dropdown_open:
+                if not self.message_box and not self.dropdown_open:
                     ch = event.unicode.upper()
                     if ch in ALPHABET:
+                        # Only the 26 letter keys drive the machine.
                         self._encode_key(ch)
                     elif event.key == pygame.K_BACKSPACE:
                         # Real Enigma operators could not undo a keystroke —
@@ -557,6 +553,9 @@ class EnigmaApp:
                         # would produce gibberish on decryption.  Show a
                         # period-appropriate notice instead of modifying state.
                         self.backspace_notice_timer = 240  # ~4 s at 60 fps
+                    # All other keys (Escape, Enter, Tab, numbers, symbols,
+                    # function keys, arrows, modifiers) are intentionally
+                    # ignored — no sound, no animation, no state change.
             elif event.type == pygame.MOUSEMOTION:
                 over = 'watermark' in self.hb and self.hb['watermark'].collidepoint(event.pos)
                 if over != self._watermark_hover:
