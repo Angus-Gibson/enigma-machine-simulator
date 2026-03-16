@@ -399,6 +399,7 @@ class EnigmaApp:
         self.lamp_timer = 0
         self.active_key: str | None = None
         self.key_timer = 0
+        self.backspace_notice_timer = 0
         self.dropdown_open = False
         self.message_box: str | None = None
 
@@ -549,9 +550,13 @@ class EnigmaApp:
                     ch = event.unicode.upper()
                     if ch in ALPHABET:
                         self._encode_key(ch)
-                    elif event.key == pygame.K_BACKSPACE and self.input_text:
-                        self.input_text = self.input_text[:-1]
-                        self.output_text = self.output_text[:-1]
+                    elif event.key == pygame.K_BACKSPACE:
+                        # Real Enigma operators could not undo a keystroke —
+                        # the rotor had already mechanically stepped.  Erasing
+                        # the last letter while leaving the rotors advanced
+                        # would produce gibberish on decryption.  Show a
+                        # period-appropriate notice instead of modifying state.
+                        self.backspace_notice_timer = 240  # ~4 s at 60 fps
             elif event.type == pygame.MOUSEMOTION:
                 over = 'watermark' in self.hb and self.hb['watermark'].collidepoint(event.pos)
                 if over != self._watermark_hover:
@@ -708,6 +713,8 @@ class EnigmaApp:
             self.key_timer -= 1
             if self.key_timer == 0:
                 self.active_key = None
+        if self.backspace_notice_timer > 0:
+            self.backspace_notice_timer -= 1
 
     # ── Draw dispatch ─────────────────────────────────────────────────────────
 
@@ -726,6 +733,7 @@ class EnigmaApp:
         add_section_shadow(s, KEY_Y, RIGHT_X, 10)
         self._draw_keyboard(s)
         self._draw_output_panel(s)
+        self._draw_backspace_notice(s)
         self._draw_watermark(s)
         if self.dropdown_open:
             self._draw_dropdown(s)
@@ -1612,6 +1620,53 @@ class EnigmaApp:
                 iy + item_h // 2 + 9,
             )
             self.hb[f'dd_{mtype}'] = ir
+
+    # ── Backspace Notice ──────────────────────────────────────────────────────
+
+    def _draw_backspace_notice(self, surf):
+        """Non-modal period-appropriate notice shown when backspace is pressed.
+
+        Real Enigma operators had no undo — the rotor stepped on key contact
+        and could not be reversed.  The notice fades out after ~4 seconds and
+        never modifies cipher or rotor state.
+        """
+        if self.backspace_notice_timer <= 0:
+            return
+
+        # Fade out over the last 60 frames (~1 s)
+        t = self.backspace_notice_timer
+        alpha = 255 if t > 60 else int(t / 60 * 255)
+
+        # Position: horizontal strip inside the output panel, vertically centred
+        pad = 14
+        nw = SW - RIGHT_X - pad * 2
+        nh = 52
+        nx = RIGHT_X + pad
+        ny = (SH - nh) // 2 + 40  # slightly below dead-centre of the panel
+
+        # Background — dark olive, like aged military-issue paper
+        bg = pygame.Surface((nw, nh), pygame.SRCALPHA)
+        bg.fill((42, 36, 18, alpha))
+        surf.blit(bg, (nx, ny))
+
+        # Border — thin, subdued
+        border = pygame.Surface((nw, nh), pygame.SRCALPHA)
+        pygame.draw.rect(border, (105, 88, 52, alpha), (0, 0, nw, nh), 1)
+        surf.blit(border, (nx, ny))
+
+        # Thin rule beneath the first line of text — telegraphic separator
+        rule = pygame.Surface((nw - 16, 1), pygame.SRCALPHA)
+        rule.fill((105, 88, 52, alpha))
+        surf.blit(rule, (nx + 8, ny + 22))
+
+        # Text — warm parchment, monospace at smallest available size
+        ink = (214, 190, 132)
+        line1 = self.f_xs.render('Enigma operators could not undo keystrokes.', True, ink)
+        line2 = self.f_xs.render('Use Reset Position to start over.', True, ink)
+        line1.set_alpha(alpha)
+        line2.set_alpha(alpha)
+        surf.blit(line1, (nx + 8, ny + 8))
+        surf.blit(line2, (nx + 8, ny + 28))
 
     # ── Message Box ───────────────────────────────────────────────────────────
 

@@ -1,0 +1,62 @@
+# Configures GitHub's automatic release note categorisation.
+#
+# Used by:
+#   (1) The "Auto-generate release notes" button on the GitHub releases page.
+#   (2) Any workflow step that sets generate_release_notes: true.
+#
+# The CI pipeline generates its own commit-based changelog from Conventional
+# Commit prefixes, so this file primarily serves two purposes:
+#   - Reference for the label → category mapping used by contributors.
+#   - Automatic categorisation of Dependabot PRs (which carry the
+#     "dependencies" or "github-actions" labels set in dependabot.yml).
+#
+# Label conventions used in this project:
+#   enhancement, feature     → New Features
+#   bug, bugfix              → Bug Fixes
+#   security                 → Security
+#   dependencies             → Dependencies  (set by Dependabot for pip)
+#   github-actions           → Dependencies  (set by Dependabot for Actions)
+#   ci, infrastructure       → Pipeline & Infrastructure
+#   documentation            → Documentation
+#   refactor, style          → Code Quality
+#   skip-changelog           → Excluded from all release notes
+
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+
+  categories:
+    - title: "🎛️ New Features"
+      labels:
+        - enhancement
+        - feature
+
+    - title: "🐛 Bug Fixes"
+      labels:
+        - bug
+        - bugfix
+
+    - title: "🔒 Security"
+      labels:
+        - security
+
+    - title: "📦 Dependencies"
+      labels:
+        - dependencies
+        - github-actions
+
+    - title: "🏗️ Pipeline & Infrastructure"
+      labels:
+        - ci
+        - infrastructure
+
+    - title: "📝 Documentation"
+      labels:
+        - documentation
+
+    - title: "🎨 Code Quality"
+      labels:
+        - refactor
+        - style
+        - code-quality

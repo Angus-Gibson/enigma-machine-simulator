@@ -151,28 +151,116 @@ jobs:
           $mb = [math]::Round((Get-Item $dst).Length / 1MB, 1)
           Write-Host "✓ EnigmaMachineSimulator-$version.exe — $mb MB"
 
-      # ── 9. Release ────────────────────────────────────────────────────────────
+      # ── 9. Changelog ──────────────────────────────────────────────────────────
+      # Categorises every commit since the previous release tag into labelled
+      # sections using Conventional Commit prefixes, then writes a complete
+      # release body to release_body.md for use by the Create Release step.
+      #
+      # Category rules (first match wins; test: and unknown prefixes omitted):
+      #   fix(security): / chore(security):  → 🔒 Security
+      #   feat(…)?(!)?:                       → 🎛️ New Features
+      #   fix(…)?(!)?:                        → 🐛 Bug Fixes
+      #   chore(deps…):                       → 📦 Dependencies
+      #   chore(…)?: / ci(…)?:               → 🏗️ Pipeline & Infrastructure
+      #   docs(…)?:                           → 📝 Documentation
+      #   refactor(…)?: / style(…)?:         → 🎨 Code Quality
+      - name: Build changelog
+        id: changelog
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $previous = "${{ steps.semver.outputs.previous }}"
+          $version  = "${{ steps.semver.outputs.version }}"
+          $sha      = "${{ github.sha }}"
+          $short    = $sha.Substring(0, 7)
+          $repoUrl  = "${{ github.server_url }}/${{ github.repository }}"
+          $bump     = "${{ steps.semver.outputs.bump }}"
+          $branch   = "${{ github.ref_name }}"
+
+          # ── Section builder ─────────────────────────────────────────────────
+          function Make-Section {
+              param($Title, $Items)
+              if ($null -eq $Items -or @($Items).Count -eq 0) { return "" }
+              return "### $Title`n" + (@($Items) -join "`n") + "`n`n"
+          }
+
+          # ── Collect commits since previous tag ──────────────────────────────
+          # v0.0.0 is the sentinel used when no prior tag exists — log all history.
+          if ($previous -eq 'v0.0.0') {
+              $rawCommits = git log HEAD --pretty=format:"%H %s" --no-merges
+          } else {
+              $rawCommits = git log "$previous..HEAD" --pretty=format:"%H %s" --no-merges
+          }
+
+          # ── Category buckets ────────────────────────────────────────────────
+          $feat = @(); $fix = @(); $sec = @()
+          $deps = @(); $ci  = @(); $docs = @(); $qual = @()
+
+          foreach ($line in $rawCommits) {
+              if ([string]::IsNullOrWhiteSpace($line) -or $line.Length -le 41) { continue }
+              $cSha  = $line.Substring(0, 40)
+              $subj  = $line.Substring(41).Trim()
+              $cShrt = $cSha.Substring(0, 7)
+              $entry = "- [``$cShrt``]($repoUrl/commit/$cSha) $subj"
+
+              if     ($subj -match '^(fix|chore)\(security\):')      { $sec  += $entry }
+              elseif ($subj -match '^feat(\([^)]*\))?(!)?:')          { $feat += $entry }
+              elseif ($subj -match '^fix(\([^)]*\))?(!)?:')           { $fix  += $entry }
+              elseif ($subj -match '^chore\(deps[^)]*\):')            { $deps += $entry }
+              elseif ($subj -match '^(chore|ci)(\([^)]*\))?:')       { $ci   += $entry }
+              elseif ($subj -match '^docs(\([^)]*\))?:')              { $docs += $entry }
+              elseif ($subj -match '^(refactor|style)(\([^)]*\))?:') { $qual += $entry }
+              # test: and unrecognised prefixes are intentionally omitted
+          }
+
+          # ── Build categorised changelog ─────────────────────────────────────
+          $cl  = Make-Section "🎛️ New Features"              $feat
+          $cl += Make-Section "🐛 Bug Fixes"                 $fix
+          $cl += Make-Section "🔒 Security"                  $sec
+          $cl += Make-Section "📦 Dependencies"              $deps
+          $cl += Make-Section "🏗️ Pipeline & Infrastructure" $ci
+          $cl += Make-Section "📝 Documentation"             $docs
+          $cl += Make-Section "🎨 Code Quality"              $qual
+
+          if ([string]::IsNullOrWhiteSpace($cl)) {
+              $cl = "_No categorised changes in this release._`n`n"
+          }
+
+          # ── Assemble full release body ──────────────────────────────────────
+          # Build as a list of lines then join, to avoid PowerShell here-string
+          # indentation constraints inside YAML block scalars.
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add("## Enigma Machine Simulator $version")
+          $lines.Add("")
+          $lines.Add("| | |")
+          $lines.Add("|---|---|")
+          $lines.Add("| **Version** | ``$version`` |")
+          $lines.Add("| **Previous** | ``$previous`` |")
+          $lines.Add("| **Bump type** | ``$bump`` |")
+          $lines.Add("| **Commit** | [``$short``]($repoUrl/commit/$sha) |")
+          $lines.Add("| **Branch** | ``$branch`` |")
+          $lines.Add("")
+          $lines.Add("## What's Changed")
+          $lines.Add("")
+          $lines.Add($cl.TrimEnd())
+          $lines.Add("")
+          $lines.Add("### Download")
+          $lines.Add("**``EnigmaMachineSimulator-$version.exe``** — self-contained Windows executable.")
+          $lines.Add("No Python installation required. Double-click to run.")
+
+          ($lines -join "`n") | Out-File -FilePath "release_body.md" -Encoding utf8
+          Write-Host "Changelog written — $(@($rawCommits).Count) commit(s) examined"
+
+      # ── 10. Release ───────────────────────────────────────────────────────────
       # Only reached on main when all prior steps succeed.
+      # body_path reads the release body written by the changelog step above.
       - name: Create GitHub Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.semver.outputs.version }}
           name: "Enigma Machine Simulator ${{ steps.semver.outputs.version }}"
-          body: |
-            ## Enigma Machine Simulator ${{ steps.semver.outputs.version }}
-
-            | | |
-            |---|---|
-            | **Version** | `${{ steps.semver.outputs.version }}` |
-            | **Previous** | `${{ steps.semver.outputs.previous }}` |
-            | **Bump type** | `${{ steps.semver.outputs.bump }}` |
-            | **Commit** | [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |
-            | **Branch** | `${{ github.ref_name }}` |
-
-            ### Download
-            **`EnigmaMachineSimulator-${{ steps.semver.outputs.version }}.exe`** — self-contained Windows executable.
-            No Python installation required. Double-click to run.
+          body_path: release_body.md
           files: dist/EnigmaMachineSimulator-${{ steps.semver.outputs.version }}.exe
           make_latest: true
           generate_release_notes: false
