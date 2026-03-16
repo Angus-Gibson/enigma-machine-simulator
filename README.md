@@ -4,6 +4,12 @@ A fully functional, visually authentic recreation of the German Enigma cipher ma
 
 ---
 
+## Screenshot
+
+![Enigma Machine Simulator](assets/screenshots/enigma_simulator.png)
+
+---
+
 ## Historical Background
 
 The Enigma machine was an electro-mechanical cipher device used extensively by Nazi Germany during the Second World War. Originally developed commercially in the early 1920s, it was adopted by the German military in the late 1920s and became the backbone of German encrypted communications — used by the Army (*Wehrmacht*), Air Force (*Luftwaffe*), and Navy (*Kriegsmarine*) throughout the war.
