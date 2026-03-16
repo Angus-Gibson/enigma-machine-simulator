@@ -87,7 +87,7 @@ jobs:
 
       # ── 4. Dependencies ───────────────────────────────────────────────────────
       - name: Install dependencies
-        run: pip install pygame numpy Pillow pyinstaller flake8 black
+        run: pip install -r requirements.txt pyinstaller flake8 black
 
       # ── 5. Lint ───────────────────────────────────────────────────────────────
       # Runs before the PyInstaller build so style/import errors are caught early.
