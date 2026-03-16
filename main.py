@@ -10,6 +10,7 @@ import math
 import pathlib
 import random as _rnd
 import textwrap
+import webbrowser
 import pygame
 import pygame.gfxdraw
 
@@ -50,6 +51,9 @@ KEY_H          = SH - KEY_Y
 KB_ROWS = [list('QWERTZUIO'), list('ASDFGHJK'), list('PYXCVBNML')]
 KB_ALL  = [c for row in KB_ROWS for c in row]
 ASSETS  = resource_path('assets')
+
+WATERMARK_URL  = 'https://github.com/Angus-Gibson'
+WATERMARK_TEXT = 'github.com/Angus-Gibson'
 
 # ─── Period-correct palette ───────────────────────────────────────────────────
 C = {
@@ -386,6 +390,7 @@ class EnigmaApp:
         self.output_text = ''
         self.hb: dict[str, pygame.Rect] = {}
         self.running = True
+        self._watermark_hover = False
 
     # ── Asset loading ──────────────────────────────────────────────────────────
 
@@ -529,10 +534,22 @@ class EnigmaApp:
                     elif event.key == pygame.K_BACKSPACE and self.input_text:
                         self.input_text  = self.input_text[:-1]
                         self.output_text = self.output_text[:-1]
+            elif event.type == pygame.MOUSEMOTION:
+                over = ('watermark' in self.hb and
+                        self.hb['watermark'].collidepoint(event.pos))
+                if over != self._watermark_hover:
+                    self._watermark_hover = over
+                    pygame.mouse.set_cursor(
+                        pygame.SYSTEM_CURSOR_HAND if over
+                        else pygame.SYSTEM_CURSOR_ARROW)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self._handle_click(event.pos)
 
     def _handle_click(self, pos):
+        if 'watermark' in self.hb and self.hb['watermark'].collidepoint(pos):
+            webbrowser.open(WATERMARK_URL)
+            return
+
         if self.message_box:
             if 'msgbox_ok' in self.hb and self.hb['msgbox_ok'].collidepoint(pos):
                 self.message_box = None
@@ -662,6 +679,7 @@ class EnigmaApp:
         add_section_shadow(s, KEY_Y, RIGHT_X, 10)
         self._draw_keyboard(s)
         self._draw_output_panel(s)
+        self._draw_watermark(s)
         if self.dropdown_open:  self._draw_dropdown(s)
         if self.message_box:    self._draw_message_box(s)
         pygame.display.flip()
@@ -1450,6 +1468,22 @@ class EnigmaApp:
         bevel_rect(surf, ok, (60, 190, 65), (30, 100, 35))
         draw_text(surf, "OK", self.f_med, C['ivory'], ok.centerx, ok.centery)
         self.hb['msgbox_ok'] = ok
+
+    # ── Watermark ─────────────────────────────────────────────────────────────
+
+    def _draw_watermark(self, surf):
+        """Render a clickable hyperlink in the lower-left corner of the keyboard panel."""
+        col   = (130, 108, 62) if self._watermark_hover else (72, 60, 34)
+        label = self.f_xs.render(WATERMARK_TEXT, True, col)
+        x = 10
+        y = SH - label.get_height() - 7
+        surf.blit(label, (x, y))
+        # Underline
+        uw = label.get_width()
+        uy = y + label.get_height() - 1
+        pygame.draw.line(surf, col, (x, uy), (x + uw, uy))
+        self.hb['watermark'] = pygame.Rect(x - 2, y - 2, uw + 4,
+                                           label.get_height() + 5)
 
     # ── Main loop ─────────────────────────────────────────────────────────────
 
