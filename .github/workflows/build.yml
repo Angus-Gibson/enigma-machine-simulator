@@ -14,66 +14,125 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # ── 1. Source ────────────────────────────────────────────────────────────
+      # ── 1. Source ─────────────────────────────────────────────────────────────
+      # fetch-depth: 0 fetches the full history and all tags so the semver step
+      # can find the latest release tag.
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # ── 2. Python ────────────────────────────────────────────────────────────
+      # ── 2. Semantic version ───────────────────────────────────────────────────
+      # Reads the HEAD commit message, classifies it against Conventional Commits,
+      # finds the latest vX.Y.Z tag, and computes the next version.
+      #
+      # Rules (highest-priority match wins):
+      #   BREAKING CHANGE: in body  →  major bump
+      #   type(scope)!: …           →  major bump  (! after type or scope)
+      #   feat(scope)?: …           →  minor bump
+      #   fix(scope)?: …            →  patch bump
+      #   anything else             →  patch bump  (fallback)
+      - name: Calculate next semantic version
+        id: semver
+        shell: pwsh
+        run: |
+          # Full commit message (subject + body)
+          $msg = git log -1 --pretty=%B
+
+          # ── Classify bump type ───────────────────────────────────────────────
+          $bump = 'patch'   # default fallback for non-Conventional Commits
+
+          if (($msg -match '(?m)^BREAKING CHANGE:') -or
+              ($msg -match '(?m)^\w+(\([^)]*\))?!:')) {
+            $bump = 'major'
+          } elseif ($msg -match '(?m)^feat(\([^)]*\))?:') {
+            $bump = 'minor'
+          } elseif ($msg -match '(?m)^fix(\([^)]*\))?:') {
+            $bump = 'patch'
+          }
+
+          # ── Find latest semver tag ───────────────────────────────────────────
+          $tags   = git tag --sort=-version:refname |
+                      Where-Object { $_ -match '^v\d+\.\d+\.\d+$' }
+          $latest = if ($tags) { $tags | Select-Object -First 1 } else { 'v0.0.0' }
+
+          # ── Compute next version ─────────────────────────────────────────────
+          $parts = $latest.TrimStart('v').Split('.')
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+
+          switch ($bump) {
+            'major' { $major++; $minor = 0; $patch = 0 }
+            'minor' { $minor++; $patch = 0 }
+            'patch' { $patch++ }
+          }
+
+          $next = "v$major.$minor.$patch"
+
+          Write-Host "Previous tag : $latest"
+          Write-Host "Bump type    : $bump"
+          Write-Host "Next version : $next"
+
+          "version=$next" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "bump=$bump"    | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "previous=$latest" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      # ── 3. Python ─────────────────────────────────────────────────────────────
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
 
-      # ── 3. Dependencies ──────────────────────────────────────────────────────
+      # ── 4. Dependencies ───────────────────────────────────────────────────────
       - name: Install dependencies
         run: pip install pygame numpy Pillow pyinstaller
 
-      # ── 4. Build ─────────────────────────────────────────────────────────────
-      # SDL_VIDEODRIVER=dummy  — tells SDL to use a headless dummy display driver
-      #                          so pygame never attempts to open a real window.
-      # SDL_AUDIODRIVER=dummy  — same for audio; prevents mixer-init failures on
-      #                          the GitHub-hosted runner which has no audio device.
-      # These env vars are only in scope for this step; the shipped .exe ignores
-      # them entirely because it runs on the user's real Windows machine.
+      # ── 5. Build ──────────────────────────────────────────────────────────────
+      # SDL_VIDEODRIVER=dummy  — headless display driver; pygame never tries to
+      #                          open a real window during PyInstaller analysis.
+      # SDL_AUDIODRIVER=dummy  — prevents mixer-init failures on the runner.
+      # These vars are build-time only; the shipped .exe ignores them on the
+      # user's real Windows machine.
       - name: Build executable with PyInstaller
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: pyinstaller EnigmaMachineSimulator.spec
 
-      # ── 5. Verify ────────────────────────────────────────────────────────────
-      - name: Verify executable was produced
+      # ── 6. Rename with version ────────────────────────────────────────────────
+      - name: Rename executable with version
         shell: pwsh
         run: |
-          $exe = "dist\EnigmaMachineSimulator.exe"
-          if (-not (Test-Path $exe)) {
-            Write-Error "Build failed — executable not found at $exe"
-            exit 1
-          }
-          $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
-          Write-Host "✓ EnigmaMachineSimulator.exe — $mb MB"
+          $version = "${{ steps.semver.outputs.version }}"
+          $src = "dist\EnigmaMachineSimulator.exe"
+          $dst = "dist\EnigmaMachineSimulator-$version.exe"
+          Rename-Item $src $dst
+          $mb = [math]::Round((Get-Item $dst).Length / 1MB, 1)
+          Write-Host "✓ EnigmaMachineSimulator-$version.exe — $mb MB"
 
-      # ── 6. Release ───────────────────────────────────────────────────────────
-      # Creates a new GitHub Release and uploads the .exe as a release asset.
-      # Tag format: v{run_number}  e.g. v1, v2, v3 …
-      # The release is only created when all previous steps succeed (default
-      # behaviour of a linear job — any failure short-circuits the rest).
+      # ── 7. Release ────────────────────────────────────────────────────────────
+      # Only reached when all prior steps succeed — failures short-circuit the job.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: "Enigma Machine Simulator v${{ github.run_number }}"
+          tag_name: ${{ steps.semver.outputs.version }}
+          name: "Enigma Machine Simulator ${{ steps.semver.outputs.version }}"
           body: |
-            Automated build triggered by commit [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on `${{ github.ref_name }}`.
+            ## Enigma Machine Simulator ${{ steps.semver.outputs.version }}
+
+            | | |
+            |---|---|
+            | **Version** | `${{ steps.semver.outputs.version }}` |
+            | **Previous** | `${{ steps.semver.outputs.previous }}` |
+            | **Bump type** | `${{ steps.semver.outputs.bump }}` |
+            | **Commit** | [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |
+            | **Branch** | `${{ github.ref_name }}` |
 
             ### Download
-            **`EnigmaMachineSimulator.exe`** — self-contained Windows executable.
-            No Python installation required.
-
-            ### Running
-            Double-click `EnigmaMachineSimulator.exe`.
-            Window opens at 1440 × 960 and scales responsively.
-          files: dist/EnigmaMachineSimulator.exe
+            **`EnigmaMachineSimulator-${{ steps.semver.outputs.version }}.exe`** — self-contained Windows executable.
+            No Python installation required. Double-click to run.
+          files: dist/EnigmaMachineSimulator-${{ steps.semver.outputs.version }}.exe
           make_latest: true
           generate_release_notes: false
