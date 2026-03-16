@@ -2,6 +2,8 @@ name: Build Windows Executable
 
 on:
   push:
+    branches: ['**']
+  pull_request:
     branches: [main]
 
 # Explicit minimum permissions — anything not listed defaults to none when a
@@ -35,6 +37,7 @@ jobs:
           fetch-depth: 0
 
       # ── 2. Semantic version ───────────────────────────────────────────────────
+      # Skipped on non-main branches; outputs are unused by later if: conditions.
       # Reads the HEAD commit message, classifies it against Conventional Commits,
       # finds the latest vX.Y.Z tag, and computes the next version.
       #
@@ -46,6 +49,7 @@ jobs:
       #   anything else             →  patch bump  (fallback)
       - name: Calculate next semantic version
         id: semver
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           # Full commit message (subject + body)
@@ -126,6 +130,7 @@ jobs:
       # These vars are build-time only; the shipped .exe ignores them on the
       # user's real Windows machine.
       - name: Build executable with PyInstaller
+        if: github.ref == 'refs/heads/main'
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
@@ -136,6 +141,7 @@ jobs:
       # parameter rejects values that contain path separators — it expects a bare
       # filename only.  Move-Item accepts full paths for both arguments.
       - name: Rename executable with version
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           $version = "${{ steps.semver.outputs.version }}".Trim()
@@ -146,8 +152,9 @@ jobs:
           Write-Host "✓ EnigmaMachineSimulator-$version.exe — $mb MB"
 
       # ── 9. Release ────────────────────────────────────────────────────────────
-      # Only reached when all prior steps succeed — failures short-circuit the job.
+      # Only reached on main when all prior steps succeed.
       - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.semver.outputs.version }}
