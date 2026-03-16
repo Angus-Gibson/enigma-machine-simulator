@@ -1,0 +1,179 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+# Minimum permissions: read the diff via the API, post the review comment.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Claude PR Review
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Fetch diff ──────────────────────────────────────────────────────────
+      # Requests the raw unified diff via the GitHub diff media type.
+      # Caps at 150 KB so the payload fits comfortably within the model context
+      # window; larger PRs get a truncation notice appended at the end.
+      - name: Fetch PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
+            -o pr.diff
+
+          MAX_BYTES=153600
+          actual=$(wc -c < pr.diff)
+          if [ "$actual" -gt "$MAX_BYTES" ]; then
+            head -c "$MAX_BYTES" pr.diff > pr.diff.tmp
+            printf '\n\n[... diff truncated at 150 KB — view the full diff on GitHub ...]\n' \
+              >> pr.diff.tmp
+            mv pr.diff.tmp pr.diff
+            echo "Note: diff was ${actual} bytes, truncated to ${MAX_BYTES}."
+          fi
+
+      # ── 2. Install Anthropic SDK ───────────────────────────────────────────────
+      - name: Install Anthropic SDK
+        run: pip install anthropic --quiet
+
+      # ── 3. Generate review ────────────────────────────────────────────────────
+      # Sends the diff and PR metadata to claude-sonnet-4-6 with a project-
+      # specific system prompt, then writes the response to review.md.
+      #
+      # Requires the ANTHROPIC_API_KEY repository secret.
+      # To add it:
+      #   1. Get an API key at https://console.anthropic.com
+      #   2. Repository → Settings → Secrets and variables → Actions
+      #   3. New repository secret → Name: ANTHROPIC_API_KEY
+      - name: Generate review with Claude
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: python3 {0}
+        run: |
+          import os
+          import sys
+          import anthropic
+
+          api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+          if not api_key:
+              print('ERROR: ANTHROPIC_API_KEY secret is not configured.')
+              print('Add it at: Repository -> Settings -> Secrets and variables -> Actions')
+              sys.exit(1)
+
+          diff = open('pr.diff').read().strip() or '(empty diff -- no file changes detected)'
+
+          context = '\n'.join([
+              f"PR Title   : {os.environ['PR_TITLE']}",
+              f"PR Author  : {os.environ['PR_AUTHOR']}",
+              f"Branch     : {os.environ['PR_BASE']} <- {os.environ['PR_HEAD']}",
+              f"Description: {os.environ.get('PR_BODY') or '(none)'}",
+          ])
+
+          client = anthropic.Anthropic(api_key=api_key)
+
+          response = client.messages.create(
+              model='claude-sonnet-4-6',
+              max_tokens=2048,
+              system=(
+                  'You are a code reviewer for the Enigma Machine Simulator, '
+                  'a historically accurate WWII Enigma cipher machine built in Python and PyGame. '
+                  'Review the provided diff and produce a concise PR summary covering: '
+                  'what changed and why, any potential bugs or issues introduced, '
+                  'whether the change is consistent with what the commit message claims, '
+                  'any historical accuracy concerns if enigma_core.py was modified, '
+                  'and an overall recommendation of Approve, Request Changes, or Needs Discussion. '
+                  'Be direct and specific. Format your response in clean markdown.'
+              ),
+              messages=[{
+                  'role': 'user',
+                  'content': f'{context}\n\n---\n\n```diff\n{diff}\n```',
+              }],
+          )
+
+          review = response.content[0].text
+          run_url = os.environ['RUN_URL']
+
+          body = (
+              '<!-- claude-pr-review -->\n'
+              '## \U0001f916 Claude Code Review\n\n'
+              + review
+              + '\n\n---\n'
+              + f'*Reviewed by [Claude](https://claude.ai)'
+              + f' \u00b7 [`claude-sonnet-4-6`](https://www.anthropic.com)'
+              + f' \u00b7 [View run]({run_url})*'
+          )
+
+          open('review.md', 'w').write(body)
+          print('Review generated successfully.')
+
+      # ── 4. Replace previous Claude review comment ─────────────────────────────
+      # Deletes any earlier comment posted by this workflow (identified by the
+      # HTML marker <!-- claude-pr-review -->) so the PR doesn't accumulate
+      # stale reviews on force-pushes or re-runs, then posts the new one.
+      - name: Replace previous review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+
+          curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+          | jq -r '.[] | select(.body | startswith("<!-- claude-pr-review -->")) | .id' \
+          | while read -r id; do
+              curl -s -X DELETE \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/${REPO}/issues/comments/${id}"
+              echo "Deleted stale review comment ${id}"
+            done
+
+          jq -n --rawfile body review.md '{body: $body}' \
+          | curl -s -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments" \
+              --data-binary @-
+
+      # ── 5. Job summary ────────────────────────────────────────────────────────
+      # Always runs so setup instructions are visible even when the review step
+      # fails (e.g. missing API key).
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ -f review.md ]; then
+            cat review.md >> $GITHUB_STEP_SUMMARY
+          else
+            cat >> $GITHUB_STEP_SUMMARY << 'SUMMARY'
+          ## ⚠️ Setup Required
+
+          The `ANTHROPIC_API_KEY` secret is not configured.
+          The AI review cannot run until it is added.
+
+          ### Adding the secret
+
+          1. Get an API key at [console.anthropic.com](https://console.anthropic.com)
+          2. Open **Repository → Settings → Secrets and variables → Actions**
+          3. Click **New repository secret**
+          4. **Name:** `ANTHROPIC_API_KEY`
+          5. **Value:** your key (begins with `sk-ant-…`)
+          6. Click **Add secret**, then re-run this workflow
+          SUMMARY
+          fi
