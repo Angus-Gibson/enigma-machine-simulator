@@ -52,6 +52,12 @@ ASSETS  = resource_path('assets')
 
 WATERMARK_URL  = 'https://github.com/Angus-Gibson'
 WATERMARK_TEXT = 'github.com/Angus-Gibson'
+
+# Keys and modifiers accepted by the Enigma keyboard.
+# Using event.key (physical scancode) rather than event.unicode so that
+# Shift, Caps Lock, AltGr, etc. cannot smuggle a letter through the check.
+_ALPHA_KEYS = frozenset(range(pygame.K_a, pygame.K_z + 1))
+_MOD_MASK   = pygame.KMOD_SHIFT | pygame.KMOD_CTRL | pygame.KMOD_ALT | pygame.KMOD_META
 # fmt: on
 
 # ─── Period-correct palette ───────────────────────────────────────────────────
@@ -542,10 +548,12 @@ class EnigmaApp:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
                 if not self.message_box and not self.dropdown_open:
-                    ch = event.unicode.upper()
-                    if ch in ALPHABET:
-                        # Only the 26 letter keys drive the machine.
-                        self._encode_key(ch)
+                    if event.key in _ALPHA_KEYS and not (event.mod & _MOD_MASK):
+                        # Bare A-Z only: physical key is alphabetic AND no
+                        # modifier (Shift, Ctrl, Alt, Win/Meta) is held.
+                        # event.key is the scancode so Caps Lock, AltGr, and
+                        # composed unicode values cannot bypass this check.
+                        self._encode_key(chr(event.key).upper())
                     elif event.key == pygame.K_BACKSPACE:
                         # Real Enigma operators could not undo a keystroke —
                         # the rotor had already mechanically stepped.  Erasing
@@ -553,9 +561,8 @@ class EnigmaApp:
                         # would produce gibberish on decryption.  Show a
                         # period-appropriate notice instead of modifying state.
                         self.backspace_notice_timer = 240  # ~4 s at 60 fps
-                    # All other keys (Escape, Enter, Tab, numbers, symbols,
-                    # function keys, arrows, modifiers) are intentionally
-                    # ignored — no sound, no animation, no state change.
+                    # All other keys are intentionally silent: no sound,
+                    # no animation, no state change.
             elif event.type == pygame.MOUSEMOTION:
                 over = 'watermark' in self.hb and self.hb['watermark'].collidepoint(event.pos)
                 if over != self._watermark_hover:
