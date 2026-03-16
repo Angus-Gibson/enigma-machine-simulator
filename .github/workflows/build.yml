@@ -1,0 +1,79 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [main]
+
+# Write permission is required to create releases and tags.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: PyInstaller → EnigmaMachineSimulator.exe
+    runs-on: windows-latest
+
+    steps:
+      # ── 1. Source ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python ────────────────────────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # ── 3. Dependencies ──────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pip install pygame numpy Pillow pyinstaller
+
+      # ── 4. Build ─────────────────────────────────────────────────────────────
+      # SDL_VIDEODRIVER=dummy  — tells SDL to use a headless dummy display driver
+      #                          so pygame never attempts to open a real window.
+      # SDL_AUDIODRIVER=dummy  — same for audio; prevents mixer-init failures on
+      #                          the GitHub-hosted runner which has no audio device.
+      # These env vars are only in scope for this step; the shipped .exe ignores
+      # them entirely because it runs on the user's real Windows machine.
+      - name: Build executable with PyInstaller
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: pyinstaller EnigmaMachineSimulator.spec
+
+      # ── 5. Verify ────────────────────────────────────────────────────────────
+      - name: Verify executable was produced
+        shell: pwsh
+        run: |
+          $exe = "dist\EnigmaMachineSimulator.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "Build failed — executable not found at $exe"
+            exit 1
+          }
+          $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "✓ EnigmaMachineSimulator.exe — $mb MB"
+
+      # ── 6. Release ───────────────────────────────────────────────────────────
+      # Creates a new GitHub Release and uploads the .exe as a release asset.
+      # Tag format: v{run_number}  e.g. v1, v2, v3 …
+      # The release is only created when all previous steps succeed (default
+      # behaviour of a linear job — any failure short-circuits the rest).
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Enigma Machine Simulator v${{ github.run_number }}"
+          body: |
+            Automated build triggered by commit [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on `${{ github.ref_name }}`.
+
+            ### Download
+            **`EnigmaMachineSimulator.exe`** — self-contained Windows executable.
+            No Python installation required.
+
+            ### Running
+            Double-click `EnigmaMachineSimulator.exe`.
+            Window opens at 1440 × 960 and scales responsively.
+          files: dist/EnigmaMachineSimulator.exe
+          make_latest: true
+          generate_release_notes: false

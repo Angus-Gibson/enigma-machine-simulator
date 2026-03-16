@@ -1,5 +1,7 @@
 # Enigma Machine Simulator
 
+[![Build Windows Executable](https://github.com/Angus-Gibson/enigma-machine-simulator/actions/workflows/build.yml/badge.svg)](https://github.com/Angus-Gibson/enigma-machine-simulator/actions/workflows/build.yml)
+
 A fully functional, visually authentic recreation of the German Enigma cipher machine, built with Python and Pygame. Supports all three Wehrmacht/Kriegsmarine variants with accurate rotor wirings, the double-stepping anomaly, plugboard, ring settings, and period-correct aesthetics rendered from real texture assets.
 
 ---
