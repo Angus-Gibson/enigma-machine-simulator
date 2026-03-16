@@ -1,3 +1,7 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [tool.black]
 line-length = 100
 # The codebase uses single quotes throughout; skip black's string normalisation
