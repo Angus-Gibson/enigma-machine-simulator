@@ -18,7 +18,7 @@ jobs:
       # fetch-depth: 0 fetches the full history and all tags so the semver step
       # can find the latest release tag.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -80,7 +80,7 @@ jobs:
 
       # ── 3. Python ─────────────────────────────────────────────────────────────
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -102,13 +102,16 @@ jobs:
         run: pyinstaller EnigmaMachineSimulator.spec
 
       # ── 6. Rename with version ────────────────────────────────────────────────
+      # Move-Item is used instead of Rename-Item because Rename-Item's -NewName
+      # parameter rejects values that contain path separators — it expects a bare
+      # filename only.  Move-Item accepts full paths for both arguments.
       - name: Rename executable with version
         shell: pwsh
         run: |
-          $version = "${{ steps.semver.outputs.version }}"
+          $version = "${{ steps.semver.outputs.version }}".Trim()
           $src = "dist\EnigmaMachineSimulator.exe"
           $dst = "dist\EnigmaMachineSimulator-$version.exe"
-          Rename-Item $src $dst
+          Move-Item -Path $src -Destination $dst
           $mb = [math]::Round((Get-Item $dst).Length / 1MB, 1)
           Write-Host "✓ EnigmaMachineSimulator-$version.exe — $mb MB"
 
