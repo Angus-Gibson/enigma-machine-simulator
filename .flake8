@@ -1,0 +1,20 @@
+[flake8]
+max-line-length = 100
+extend-ignore =
+    # E221 — multiple spaces before operator: used throughout for column-aligned
+    #         assignments in layout constants, colour tables, and rotor data.
+    E221,
+    # E271 — multiple spaces after keyword: same intentional alignment.
+    E271,
+    # E701 — multiple statements on one line (colon): e.g. `if x: return`
+    #         used in _handle_click for compact guard clauses.
+    E701,
+    # E702 — statement ends with semicolon: used in _handle_click one-liners.
+    E702,
+exclude =
+    .venv,
+    build,
+    dist,
+    __pycache__,
+    .git,
+    *.egg-info,

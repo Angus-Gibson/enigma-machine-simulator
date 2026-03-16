@@ -36,6 +36,7 @@ _SOUNDS_DIR = _resource_path('sounds')
 # rotor_click and ring_click both use the ratchet sample (ring_click plays at
 # lower volume to feel lighter).
 # rotor_step uses the same ratchet; it fires alongside key_press.
+# fmt: off
 _SOUND_FILES: dict[str, str] = {
     'key_press':    'key_press.mp3',
     'rotor_step':   'rotor_click.mp3',
@@ -52,6 +53,7 @@ _VOLUMES: dict[str, float] = {
     'ring_click':  0.45,
     'place_rotor': 1.0,
 }
+# fmt: on
 
 
 class SoundManager:
@@ -71,7 +73,7 @@ class SoundManager:
         # Load each file; skip gracefully if a file is absent or unreadable.
         loaded: list[str] = []
         failed: list[str] = []
-        _file_cache: dict[str, pygame.mixer.Sound] = {}   # avoid loading the same file twice
+        _file_cache: dict[str, pygame.mixer.Sound] = {}  # avoid loading the same file twice
 
         for name, filename in _SOUND_FILES.items():
             path = _SOUNDS_DIR / filename

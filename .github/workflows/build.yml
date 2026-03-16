@@ -87,9 +87,18 @@ jobs:
 
       # ── 4. Dependencies ───────────────────────────────────────────────────────
       - name: Install dependencies
-        run: pip install pygame numpy Pillow pyinstaller
+        run: pip install pygame numpy Pillow pyinstaller flake8 black
 
-      # ── 5. Build ──────────────────────────────────────────────────────────────
+      # ── 5. Lint ───────────────────────────────────────────────────────────────
+      # Runs before the PyInstaller build so style/import errors are caught early.
+      # black --check:  fails if any file would be reformatted (zero changes = pass).
+      # flake8:         enforces PEP 8 with project-specific overrides in .flake8.
+      - name: Lint (black + flake8)
+        run: |
+          black --check main.py enigma_core.py sound_manager.py
+          flake8 main.py enigma_core.py sound_manager.py
+
+      # ── 7. Build ──────────────────────────────────────────────────────────────
       # SDL_VIDEODRIVER=dummy  — headless display driver; pygame never tries to
       #                          open a real window during PyInstaller analysis.
       # SDL_AUDIODRIVER=dummy  — prevents mixer-init failures on the runner.
@@ -101,7 +110,7 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: pyinstaller EnigmaMachineSimulator.spec
 
-      # ── 6. Rename with version ────────────────────────────────────────────────
+      # ── 8. Rename with version ────────────────────────────────────────────────
       # Move-Item is used instead of Rename-Item because Rename-Item's -NewName
       # parameter rejects values that contain path separators — it expects a bare
       # filename only.  Move-Item accepts full paths for both arguments.
@@ -115,7 +124,7 @@ jobs:
           $mb = [math]::Round((Get-Item $dst).Length / 1MB, 1)
           Write-Host "✓ EnigmaMachineSimulator-$version.exe — $mb MB"
 
-      # ── 7. Release ────────────────────────────────────────────────────────────
+      # ── 9. Release ────────────────────────────────────────────────────────────
       # Only reached when all prior steps succeed — failures short-circuit the job.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

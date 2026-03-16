@@ -7,7 +7,8 @@ Rotor wirings verified against:
   - Wikipedia: Enigma rotor details
   - Enigma Technical Documentation
 
-Signal flow:  keyboard -> plugboard -> rotors (R→L) -> reflector -> rotors (L→R) -> plugboard -> lamp
+Signal flow:  keyboard -> plugboard -> rotors (R→L) -> reflector
+              -> rotors (L→R) -> plugboard -> lamp
 """
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -15,6 +16,7 @@ ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 # Tuple: (wiring_string, turnover_notch_positions)
 # Turnover position = the rotor letter that, when *leaving* that position (stepping past it),
 # causes the next rotor to step.  'Q' = rotor steps when position advances FROM Q to R.
+# fmt: off
 ROTOR_DATA = {
     'I':     ('EKMFLGDQVZNTOWYHXUSPAIBRCJ', 'Q'),    # Wehrmacht/Luftwaffe
     'II':    ('AJDKSIRUXBLHWTMCQGZNPYFVOE', 'E'),
@@ -36,6 +38,7 @@ REFLECTOR_DATA = {
     'B-Thin':  'ENKQAUYWJICOPBLMDXZVFTHRGS',   # M4 only
     'C-Thin':  'RDOBJNTKVEHMLFCWZAXGYIPSUQ',   # M4 only
 }
+# fmt: on
 
 MACHINE_CONFIGS = {
     'Enigma I': {
@@ -68,10 +71,10 @@ class Rotor:
     def __init__(self, name: str):
         self.name = name
         wiring, notches = ROTOR_DATA[name]
-        self.wiring = wiring          # Forward mapping string
-        self.notches = notches        # Letters at which turnover triggers next rotor
-        self.position = 0             # 0–25  (A=0)
-        self.ring_setting = 0         # 0–25  (01=0)
+        self.wiring = wiring  # Forward mapping string
+        self.notches = notches  # Letters at which turnover triggers next rotor
+        self.position = 0  # 0–25  (A=0)
+        self.ring_setting = 0  # 0–25  (01=0)
 
         # Pre-compute numeric forward/backward tables
         self._fwd = [ALPHABET.index(c) for c in wiring]

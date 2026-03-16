@@ -1,0 +1,12 @@
+[tool.black]
+line-length = 100
+# The codebase uses single quotes throughout; skip black's string normalisation
+# so --check mode doesn't flag every string literal.
+skip-string-normalization = true
+extend-exclude = '''
+/(
+  \.venv
+  | build
+  | dist
+)/
+'''
