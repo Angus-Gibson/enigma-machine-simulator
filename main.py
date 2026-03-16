@@ -18,6 +18,18 @@ from enigma_core import (
 )
 from sound_manager import SoundManager
 
+
+def resource_path(relative: str) -> pathlib.Path:
+    """Return absolute path to a bundled resource.
+
+    When running as a PyInstaller onefile executable, temporary files are
+    extracted to sys._MEIPASS at runtime.  When running from source the
+    path is resolved relative to this file as normal.
+    """
+    base = pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).parent))
+    return base / relative
+
+
 # ─── Window / layout ──────────────────────────────────────────────────────────
 SW, SH         = 1440, 960
 HEADER_H       = 55
@@ -37,7 +49,7 @@ KEY_H          = SH - KEY_Y
 
 KB_ROWS = [list('QWERTZUIO'), list('ASDFGHJK'), list('PYXCVBNML')]
 KB_ALL  = [c for row in KB_ROWS for c in row]
-ASSETS  = pathlib.Path(__file__).parent / 'assets'
+ASSETS  = resource_path('assets')
 
 # ─── Period-correct palette ───────────────────────────────────────────────────
 C = {

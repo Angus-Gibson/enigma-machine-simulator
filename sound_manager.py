@@ -11,6 +11,7 @@ Fallback: if any file is missing or the mixer fails, that slot is silently skipp
 """
 
 import os
+import sys
 import pathlib
 import platform
 import pygame
@@ -21,8 +22,15 @@ import pygame
 if 'microsoft' in platform.uname().release.lower():
     os.environ.setdefault('SDL_AUDIODRIVER', 'pulse')
 
+
+def _resource_path(relative: str) -> pathlib.Path:
+    """Resolve a bundled-resource path for both source and PyInstaller builds."""
+    base = pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).parent))
+    return base / relative
+
+
 # ── File locations ─────────────────────────────────────────────────────────────
-_SOUNDS_DIR = pathlib.Path(__file__).parent / 'sounds'
+_SOUNDS_DIR = _resource_path('sounds')
 
 # Map every logical sound name to a file.
 # rotor_click and ring_click both use the ratchet sample (ring_click plays at
