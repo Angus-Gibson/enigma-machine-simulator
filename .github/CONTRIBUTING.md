@@ -100,13 +100,34 @@ Feature requests are welcome. Open an issue and:
    - Reference any related issues (`Closes #42`).
    - For cipher/wiring changes, list your cited sources (see below).
 
-6. **CI must pass.** The GitHub Actions workflow builds the Windows executable on every push. A red build blocks merge.
+6. **CI must pass.** The GitHub Actions workflow lints with Black and Flake8, then builds the Windows executable. A red build blocks merge.
 
 ---
 
 ## Code Style Guidelines
 
-The project is pure Python with no linter configuration enforced by CI, but please follow these conventions to keep the code consistent:
+The CI pipeline enforces style automatically using **Black** and **Flake8**. The lint step runs before the PyInstaller build and a failure blocks merge. Run both locally before pushing:
+
+```bash
+pip install black flake8
+black --check main.py enigma_core.py sound_manager.py
+flake8 main.py enigma_core.py sound_manager.py
+```
+
+Or apply black's formatting in-place:
+
+```bash
+black main.py enigma_core.py sound_manager.py
+```
+
+**Configuration** — both tools are configured to match the project's conventions:
+
+| Tool | Config file | Key settings |
+|---|---|---|
+| Black | `pyproject.toml` | `line-length = 100`, `skip-string-normalization = true` (single quotes) |
+| Flake8 | `.flake8` | `max-line-length = 100`, ignores E221/E271 (column-aligned assignments), E701/E702 (compact guard clauses) |
+
+**Formatted data tables** — the rotor wiring, reflector, colour palette, and sound-file tables use intentional column alignment for readability and are protected with `# fmt: off` / `# fmt: on`. New data tables of the same kind should follow the same pattern.
 
 **General**
 - Follow [PEP 8](https://peps.python.org/pep-0008/) for naming and layout.
