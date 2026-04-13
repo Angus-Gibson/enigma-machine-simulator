@@ -256,7 +256,7 @@ jobs:
       # body_path reads the release body written by the changelog step above.
       - name: Create GitHub Release
         if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.semver.outputs.version }}
           name: "Enigma Machine Simulator ${{ steps.semver.outputs.version }}"
