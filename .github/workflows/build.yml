@@ -32,7 +32,7 @@ jobs:
       # fetch-depth: 0 fetches the full history and all tags so the semver step
       # can find the latest release tag.
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
