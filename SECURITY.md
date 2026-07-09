@@ -53,7 +53,7 @@ If you discover a **vulnerability in this simulator's code** (e.g., a bug in rot
    - Potential impact
    - Suggested fix (if available)
 
-We will acknowledge receipt and respond within 48 hours.
+We will acknowledge receipt and respond on a best-effort basis, typically within 7 days.
 
 ### What We Will Address
 
@@ -72,14 +72,16 @@ We will acknowledge receipt and respond within 48 hours.
 This project depends on:
 
 - **Python 3.10+** — See [python.org/security](https://www.python.org/downloads/security/)
-- **Pygame** — See [pygame.org](https://www.pygame.org/) (https://github.com/pygame/pygame/issues)
+- **Pygame** — See [pygame.org](https://www.pygame.org/)
 
-To check for dependency vulnerabilities:
+To check for dependency vulnerabilities, you can use `pip-audit` (an external security auditing tool):
 
 ```bash
-# Install tools
+# Install pip-audit
 pip install pip-audit
 
 # Audit dependencies
 pip-audit
 ```
+
+**Note:** `pip-audit` is not included as a project dependency; it is an optional external tool for vulnerability scanning.
