@@ -72,7 +72,7 @@ We will acknowledge receipt and respond within 48 hours.
 This project depends on:
 
 - **Python 3.10+** — See [python.org/security](https://www.python.org/downloads/security/)
-- **Pygame** — See [pygame.org](https://www.pygame.org/)
+- **Pygame** — See [pygame.org](https://www.pygame.org/) (https://github.com/pygame/pygame/issues)
 
 To check for dependency vulnerabilities:
 
