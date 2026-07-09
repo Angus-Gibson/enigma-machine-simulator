@@ -44,7 +44,7 @@ These weaknesses are **intentional and historically accurate** to the original d
 If you discover a **vulnerability in this simulator's code** (e.g., a bug in rotor wiring, incorrect cryptographic implementation, or a software defect), please report it responsibly:
 
 1. **Do not open a public issue** for security vulnerabilities
-2. **Submit** Use GitHub's private security vulnerability disclosure form
+2. **Submit** a report via GitHub's private security vulnerability disclosure form
 3. **Include:**
    - Description of the vulnerability
    - Steps to reproduce
