@@ -10,7 +10,9 @@ This repository contains an **educational, historically accurate simulation** of
 
 We maintain security patches for:
 
-- Support for latest release only!
+| Version | Supported |
+|---------|-----------|
+| latest  | ✅        |
 
 ## Security Considerations
 
@@ -80,3 +82,4 @@ pip install pip-audit
 
 # Audit dependencies
 pip-audit
+```
