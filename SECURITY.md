@@ -10,9 +10,7 @@ This repository contains an **educational, historically accurate simulation** of
 
 We maintain security patches for:
 
-- **Latest release**: Full support
-- **Previous release**: Security patches only
-- **Older versions**: No active support
+- Support for latest release only!
 
 ## Security Considerations
 
@@ -46,7 +44,7 @@ These weaknesses are **intentional and historically accurate** to the original d
 If you discover a **vulnerability in this simulator's code** (e.g., a bug in rotor wiring, incorrect cryptographic implementation, or a software defect), please report it responsibly:
 
 1. **Do not open a public issue** for security vulnerabilities
-2. **Email** security details to: use GitHub's private vulnerability disclosure
+2. **Submit** Use GitHub's private security vulnerability disclosure form
 3. **Include:**
    - Description of the vulnerability
    - Steps to reproduce
